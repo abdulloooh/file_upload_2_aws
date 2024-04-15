@@ -13,18 +13,54 @@ const s3 = new AWS.S3();
 app.get('/', (req, res) => {
   res.send(`
     <!DOCTYPE html>
-    <html>
+    <html lang="en">
     <head>
-      <title>Upload to S3</title>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Upload to Bucket</title>
+      <style>
+        body {
+          font-family: Arial, sans-serif;
+          background-color: #f4f4f4;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          height: 100vh;
+          margin: 0;
+        }
+        #upload-container {
+          background-color: white;
+          padding: 20px;
+          border-radius: 5px;
+          box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        input[type="file"] {
+          margin-bottom: 10px;
+        }
+        button {
+          background-color: #007bff;
+          color: white;
+          border: none;
+          padding: 10px 20px;
+          border-radius: 5px;
+          cursor: pointer;
+        }
+        button:hover {
+          background-color: #0056b3;
+        }
+      </style>
     </head>
     <body>
-      <input id="fileUpload" type="file">
-      <button onclick="uploadFile()">Upload</button>
+      <div id="upload-container">
+        <h2>Upload File</h2>
+        <input id="fileUpload" type="file">
+        <button onclick="uploadFile()">Upload</button>
+      </div>
 
       <script>
         async function uploadFile() {
           const file = document.getElementById('fileUpload').files[0];
-          // Include the file type in the request for the pre-signed URL
           const response = await fetch(\`/generate-presigned-url?filename=\${encodeURIComponent(file.name)}&filetype=\${encodeURIComponent(file.type)}\`);
           const data = await response.json();
           const url = data.url;
@@ -39,9 +75,10 @@ app.get('/', (req, res) => {
 
           if (result.ok) {
             console.log('File uploaded successfully.');
-            alert('Done, thanks, you can close this page now')
+            alert('Done, thanks, you can close this page now');
           } else {
             console.error('Failed to upload.');
+            alert('Failed to upload.');
           }
         }
       </script>
