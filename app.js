@@ -19,35 +19,23 @@ app.get('/', (req, res) => {
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
       <title>Upload to Bucket</title>
       <style>
-        body {
-          font-family: Arial, sans-serif;
-          background-color: #f4f4f4;
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-          height: 100vh;
-          margin: 0;
+        /* ... existing styles ... */
+        #progressBarContainer {
+          width: 100%;
+          background-color: #ddd;
+          display: none; /* Hide the progress bar container initially */
         }
-        #upload-container {
-          background-color: white;
-          padding: 20px;
-          border-radius: 5px;
-          box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-        }
-        input[type="file"] {
-          margin-bottom: 10px;
-        }
-        button {
-          background-color: #007bff;
+        #progressBar {
+          width: 0%;
+          height: 30px;
+          background-color: #4CAF50;
+          text-align: center;
+          line-height: 30px;
           color: white;
-          border: none;
-          padding: 10px 20px;
-          border-radius: 5px;
-          cursor: pointer;
         }
-        button:hover {
-          background-color: #0056b3;
+        #errorMessage {
+          color: red;
+          display: none; /* Hide the error message initially */
         }
       </style>
     </head>
@@ -56,29 +44,55 @@ app.get('/', (req, res) => {
         <h2>Upload File</h2>
         <input id="fileUpload" type="file">
         <button onclick="uploadFile()">Upload</button>
+        <div id="progressBarContainer">
+          <div id="progressBar">0%</div>
+        </div>
+        <div id="errorMessage"></div> <!-- Error message container -->
       </div>
 
       <script>
         async function uploadFile() {
           const file = document.getElementById('fileUpload').files[0];
-          const response = await fetch(\`/generate-presigned-url?filename=\${encodeURIComponent(file.name)}&filetype=\${encodeURIComponent(file.type)}\`);
-          const data = await response.json();
-          const url = data.url;
+          document.getElementById('progressBarContainer').style.display = 'block'; // Show the progress bar
+          document.getElementById('progressBar').style.width = '0%'; // Reset progress bar width
+          document.getElementById('progressBar').innerText = '0%'; // Reset progress bar text
+          document.getElementById('errorMessage').style.display = 'none'; // Hide error message
 
-          const result = await fetch(url, {
-            method: 'PUT',
-            body: file,
-            headers: {
-              'Content-Type': file.type
+          try {
+            const response = await fetch(\`/generate-presigned-url?filename=\${encodeURIComponent(file.name)}&filetype=\${encodeURIComponent(file.type)}\`);
+            const data = await response.json();
+            if (response.ok) {
+              const url = data.url;
+
+              const xhr = new XMLHttpRequest();
+              xhr.open('PUT', url, true);
+              xhr.upload.onprogress = function(e) {
+                if (e.lengthComputable) {
+                  const percentage = (e.loaded / e.total) * 100;
+                  document.getElementById('progressBar').style.width = percentage.toFixed(2) + '%';
+                  document.getElementById('progressBar').innerText = percentage.toFixed(2) + '%';
+                }
+              };
+              xhr.onload = function() {
+                if (xhr.status === 200) {
+                  console.log('File uploaded successfully.');
+                  alert('Done, thanks, you can close this page now');
+                } else {
+                  throw new Error('Upload failed with status: ' + xhr.status);
+                }
+              };
+              xhr.onerror = function() {
+                throw new Error('Upload error');
+              };
+              xhr.setRequestHeader('Content-Type', file.type);
+              xhr.send(file);
+            } else {
+              throw new Error(data.error || 'Failed to get the pre-signed URL.');
             }
-          });
-
-          if (result.ok) {
-            console.log('File uploaded successfully.');
-            alert('Done, thanks, you can close this page now');
-          } else {
-            console.error('Failed to upload.');
-            alert('Failed to upload.');
+          } catch (error) {
+            console.error(error);
+            document.getElementById('errorMessage').innerText = error.message;
+            document.getElementById('errorMessage').style.display = 'block'; // Show error message
           }
         }
       </script>
