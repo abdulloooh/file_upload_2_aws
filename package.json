@@ -6,7 +6,7 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "node app.js",
-    "live": "ngrok http 5500"
+    "live": "ngrok http --domain=pegasus-proper-blowfish.ngrok-free.app 5500"
   },
   "keywords": [],
   "author": "",
