@@ -10,7 +10,7 @@ AWS.config.update({
 });
 const s3 = new AWS.S3();
 
-app.get('/', (req, res) => {
+app.get('/', async (req, res) => {
   res.send(`
     <!DOCTYPE html>
     <html lang="en">
@@ -74,11 +74,21 @@ app.get('/', (req, res) => {
           display: none;
           margin-top: 10px;
         }
+        select {
+          margin-bottom: 10px;
+          width: 100%;
+          padding: 5px;
+          border-radius: 5px;
+          border: 1px solid #ccc;
+        }
       </style>
     </head>
     <body>
       <div id="upload-container">
         <h2>Upload File</h2>
+        <select id="categorySelect" onclick="loadCategories()">
+          <option value="">Select a category</option>
+        </select>
         <input id="fileUpload" type="file">
         <button onclick="uploadFile()">Upload</button>
         <div id="progressBarContainer">
@@ -88,19 +98,47 @@ app.get('/', (req, res) => {
       </div>
 
       <script>
+        let categories = [];
+
+        async function loadCategories() {
+          if (categories.length > 0) return;
+
+          try {
+            const response = await fetch('/fetch-categories');
+            const data = await response.json();
+            categories = data.categories;
+
+            const categorySelect = document.getElementById('categorySelect');
+            categories.forEach(category => {
+              const option = document.createElement('option');
+              option.value = category;
+              option.textContent = category;
+              categorySelect.appendChild(option);
+            });
+          } catch (error) {
+            console.error('Error loading categories:', error);
+          }
+        }
+
         async function uploadFile() {
           const file = document.getElementById('fileUpload').files[0];
+          const category = document.getElementById('categorySelect').value;
           if (!file) {
             alert('Please select a file to upload.');
             return;
           }
+          if (!category) {
+            alert('Please select a category.');
+            return;
+          }
+
           document.getElementById('progressBarContainer').style.display = 'block';
           document.getElementById('progressBar').style.width = '0%';
           document.getElementById('progressBar').textContent = '0%';
           document.getElementById('errorMessage').style.display = 'none';
 
           try {
-            const response = await fetch(\`/generate-presigned-url?filename=\${encodeURIComponent(file.name)}&filetype=\${encodeURIComponent(file.type)}\`);
+            const response = await fetch(\`/generate-presigned-url?filename=\${encodeURIComponent(file.name)}&filetype=\${encodeURIComponent(file.type)}&category=\${encodeURIComponent(category)}\`);
             const data = await response.json();
 
             if (!response.ok) {
@@ -151,11 +189,29 @@ app.get('/', (req, res) => {
   `);
 });
 
+app.get('/fetch-categories', async (req, res) => {
+  try {
+    const params = {
+      Bucket: process.env.S3_BUCKET_NAME,
+      Delimiter: '/'
+    };
+
+    const data = await s3.listObjectsV2(params).promise();
+    console.log(data)
+    const categories = data.CommonPrefixes.map(prefix => prefix.Prefix.split('/').slice(-2, -1)[0])
+                                          .filter(category => category !== 'raw_uploads');
+
+    res.status(200).json({ categories });
+  } catch (err) {
+    res.status(500).json({ error: 'Error fetching categories.' });
+  }
+});
+
 app.get('/generate-presigned-url', async (req, res) => {
-  const { filename, filetype } = req.query;
+  const { filename, filetype, category } = req.query;
   const params = {
     Bucket: process.env.S3_BUCKET_NAME,
-    Key: `raw_uploads/${filename}`,
+    Key: `${category}/${filename}`,
     Expires: 300,
     ContentType: filetype
   };
